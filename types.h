@@ -7,10 +7,8 @@
 #define T_LIST_END ']'
 #define T_NOLIST 'x'
 #define T_PARAM 'p'
-#define T_PARAM2 'P'
 #define T_OSC 'o'
-#define T_OSC2 'O'
-#define T_NOTHING 'n'
+#define T_NOTHING '~'
 
 #define NUM_OF_TYPES 13
 

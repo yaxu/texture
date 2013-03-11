@@ -180,13 +180,7 @@ ClutterColor *type_colour(t_var *var) {
   case T_PARAM:
     result = &c_param;
     break;
-  case T_PARAM2:
-    result = &c_param;
-    break;
   case T_OSC:
-    result = &c_osc;
-    break;
-  case T_OSC2:
     result = &c_osc;
     break;
   case T_WILDCARD:
@@ -325,7 +319,7 @@ void show_function_recurse (t_var *var, char *result) {
 
   case T_LIST_START:
     tmp = var->list_next;
-    strncat(result, "(lToP [", MAX_CHARS);
+    strncat(result, "(maybeListToPat [", MAX_CHARS);
     if (tmp != NULL) {
       while(tmp->typetag != T_LIST_END) {
         if (tmp->typetag == T_NOTHING) {

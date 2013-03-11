@@ -96,21 +96,9 @@ extern t_var *p() {
   return(t);
 }
 
-extern t_var *p2() {
-  t_var *t = next_mempool();
-  t->typetag = T_PARAM2;
-  return(t);
-}
-
 extern t_var *o() {
   t_var *t = next_mempool();
   t->typetag = T_OSC;
-  return(t);
-}
-
-extern t_var *o2() {
-  t_var *t = next_mempool();
-  t->typetag = T_OSC2;
   return(t);
 }
 
@@ -181,7 +169,7 @@ extern t_namespace *get_namespace(void) {
   if (first) {
     first = 0;
     namespace.n = 0;
-    
+
     entry = &namespace.names[namespace.n++];
     strncpy(entry->name, "~", MAXLEN);
     entry->var = n();
@@ -202,6 +190,11 @@ extern t_namespace *get_namespace(void) {
 
     entry = &namespace.names[namespace.n++];
     strncpy(entry->name, "-", MAXLEN);
+    a = w(i(), r(), NULL);
+    entry->var = f(a, f(a, a));
+
+    entry = &namespace.names[namespace.n++];
+    strncpy(entry->name, "subtract", MAXLEN);
     a = w(i(), r(), NULL);
     entry->var = f(a, f(a, a));
 
@@ -290,66 +283,36 @@ extern t_namespace *get_namespace(void) {
     entry->var = f(s(), f(i(), s()));
 
     entry = &namespace.names[namespace.n++];
-    strncpy(entry->name, "acid", MAXLEN);
-    entry->var = f(p2(), o());
+    strncpy(entry->name, "sinewave", MAXLEN);
+    entry->var = l(r());
 
     entry = &namespace.names[namespace.n++];
-    strncpy(entry->name, "note303", MAXLEN);
-    entry->var = f(l(i()), p2());
+    strncpy(entry->name, "sinewave1", MAXLEN);
+    entry->var = l(r());
 
     entry = &namespace.names[namespace.n++];
-    strncpy(entry->name, "duration303", MAXLEN);
-    entry->var = f(l(r()), p2());
+    strncpy(entry->name, "triwave", MAXLEN);
+    entry->var = l(r());
 
     entry = &namespace.names[namespace.n++];
-    strncpy(entry->name, "saw303", MAXLEN);
-    entry->var = f(l(r()), p2());
+    strncpy(entry->name, "triwave1", MAXLEN);
+    entry->var = l(r());
 
     entry = &namespace.names[namespace.n++];
-    strncpy(entry->name, "cutoff303", MAXLEN);
-    entry->var = f(l(r()), p2());
+    strncpy(entry->name, "squarewave", MAXLEN);
+    entry->var = l(r());
 
     entry = &namespace.names[namespace.n++];
-    strncpy(entry->name, "resonance303", MAXLEN);
-    entry->var = f(l(r()), p2());
-
-    entry = &namespace.names[namespace.n++];
-    strncpy(entry->name, "envmod303", MAXLEN);
-    entry->var = f(l(r()), p2());
-
-    entry = &namespace.names[namespace.n++];
-    strncpy(entry->name, "velocity303", MAXLEN);
-    entry->var = f(l(r()), p2());
-
-    entry = &namespace.names[namespace.n++];
-    strncpy(entry->name, "accent303", MAXLEN);
-    entry->var = f(l(r()), p2());
-
-    entry = &namespace.names[namespace.n++];
-    strncpy(entry->name, "sine", MAXLEN);
-    entry->var = f(i(), l(r()));
-
-    entry = &namespace.names[namespace.n++];
-    strncpy(entry->name, "sine1", MAXLEN);
-    entry->var = f(i(), l(r()));
-
-    entry = &namespace.names[namespace.n++];
-    strncpy(entry->name, "~~", MAXLEN);
-    a = w(p(), p2(), NULL);
-    entry->var = f(a, f(a, a));
+    strncpy(entry->name, "squarewave1", MAXLEN);
+    entry->var = l(r());
 
     entry = &namespace.names[namespace.n++];
     strncpy(entry->name, "<~", MAXLEN);
     a = w(NULL);
-    entry->var = f(i(), f(l(a), l(a)));
+    entry->var = f(r(), f(l(a), l(a)));
 
     entry = &namespace.names[namespace.n++];
     strncpy(entry->name, ">+<", MAXLEN);
-    a = w(NULL);
-    entry->var = f(l(a), f(l(a), l(a)));
-
-    entry = &namespace.names[namespace.n++];
-    strncpy(entry->name, "<+>", MAXLEN);
     a = w(NULL);
     entry->var = f(l(a), f(l(a), l(a)));
 
@@ -360,8 +323,7 @@ extern t_namespace *get_namespace(void) {
 
     entry = &namespace.names[namespace.n++];
     strncpy(entry->name, "silence", MAXLEN);
-    a = w(p(), p2(), NULL);
-    entry->var = a;
+    entry->var = p;
 
     entry = &namespace.names[namespace.n++];
     strncpy(entry->name, "palindrome", MAXLEN);
@@ -379,17 +341,9 @@ extern t_namespace *get_namespace(void) {
     entry->var = f(l(a), l(a));
 
     entry = &namespace.names[namespace.n++];
-    strncpy(entry->name, "extrapolate", MAXLEN);
-    entry->var = f(i(), f(l(i()), l(i())));
-
-    entry = &namespace.names[namespace.n++];
-    strncpy(entry->name, "run", MAXLEN);
-    entry->var = f(i(), l(i()));
-
-    entry = &namespace.names[namespace.n++];
     strncpy(entry->name, "~>", MAXLEN);
     a = w(NULL);
-    entry->var = f(i(), f(l(a), l(a)));
+    entry->var = f(r(), f(l(a), l(a)));
 
     save_mempool();
   }
