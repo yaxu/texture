@@ -3,11 +3,12 @@
 #define T_REAL 'r'
 #define T_FUNCTION 'f'
 #define T_WILDCARD '*'
-#define T_LIST_START '['
+#define T_LIST '['
 #define T_LIST_END ']'
 #define T_NOLIST 'x'
-#define T_PARAM 'p'
-#define T_OSC 'o'
+//#define T_PARAM 'p'
+#define T_OSCSTREAM 'o'
+#define T_OSC 'O'
 #define T_NOTHING '~'
 
 #define NUM_OF_TYPES 13
@@ -56,6 +57,8 @@ struct var {
   float applied_x, applied_y;
   float applied_width, applied_height;
   t_var *list_next;
+  t_var *list_first; // first element in T_START_LIST types
+  t_var *list_function; // list specified as function, not as [ ]
   
   t_wildcard wildcard;
   t_wildcard wildcard_test;
@@ -85,9 +88,7 @@ extern t_var *i();
 extern t_var *r();
 extern t_var *s();
 extern t_var *p();
-extern t_var *p2();
 extern t_var *o();
-extern t_var *o2();
 extern t_var *n();
 extern t_var *l(t_var *type);
 extern t_var *l_end();

@@ -173,14 +173,14 @@ ClutterColor *type_colour(t_var *var) {
   case T_REAL:
     result = &c_real;
     break;
-  case T_LIST_START:
+  case T_LIST:
   case T_LIST_END:
     result = &c_list;
     break;
-  case T_PARAM:
+  case T_OSC:
     result = &c_param;
     break;
-  case T_OSC:
+  case T_OSCSTREAM:
     result = &c_osc;
     break;
   case T_WILDCARD:
@@ -263,7 +263,7 @@ t_var *dup_var (t_var *var, t_wildcard lookup_from, t_wildcard lookup_to) {
     }
   }
   else {
-    if (new->typetag == T_LIST_START) {
+    if (new->typetag == T_LIST) {
       assert(new->list_type != NULL);
       new->list_type = dup_var(new->list_type, lookup_from, lookup_to);
     }
@@ -317,27 +317,34 @@ void show_function_recurse (t_var *var, char *result) {
     
     break;
 
-  case T_LIST_START:
-    tmp = var->list_next;
-    strncat(result, "(maybeListToPat [", MAX_CHARS);
-    if (tmp != NULL) {
-      while(tmp->typetag != T_LIST_END) {
-        if (tmp->typetag == T_NOTHING) {
-          strncat(result, "Nothing", MAX_CHARS);
-        }
-        else {
-          strncat(result, "Just ", MAX_CHARS);
-          show_function_recurse(tmp, result);
-        }
-        tmp = tmp->list_next;
-        if (tmp->typetag != T_LIST_END) {
-          strncat(result, ", ", MAX_CHARS);
+  case T_LIST:
+    
+    if (var->list_function) {
+      strncat(result, clutter_text_get_text(var->text), MAX_CHARS);
+    }
+    else {
+      tmp = var->list_first;
+      strncat(result, "(cat [", MAX_CHARS);
+      if (tmp != NULL) {
+        while(tmp->typetag != T_LIST_END) {
+          if (tmp->typetag == T_NOTHING) {
+            strncat(result, "silence", MAX_CHARS);
+          }
+          else {
+            if (tmp->typetag != T_LIST) {
+              strncat(result, "pure ", MAX_CHARS);
+            }
+            show_function_recurse(tmp, result);
+          }
+          tmp = tmp->list_next;
+          if (tmp->typetag != T_LIST_END) {
+            strncat(result, ", ", MAX_CHARS);
+          }
         }
       }
+      strncat(result, "])", MAX_CHARS);
     }
-    strncat(result, "])", MAX_CHARS);
     break;
-    
   case T_STRING:
     if (var->text != NULL) {
       strncat(result, "\"", MAX_CHARS);
@@ -654,10 +661,15 @@ void draw_list_var (cairo_t *cr, t_var *var) {
     clutter_actor_get_position(CLUTTER_ACTOR(var->text), &x, &y);
     cairo_move_to(cr, x, y);
     
-    while(var->list_next != NULL) {
-      var = var->list_next;
-      clutter_actor_get_position(CLUTTER_ACTOR(var->text), &x, &y);
+    t_var *tmp = var->list_first;
+    while(tmp != NULL) {
+      if (tmp->typetag == T_LIST && tmp->list_first != NULL) {
+        draw_list_var(cr, tmp);
+        cairo_move_to(cr, x, y);
+      }
+      clutter_actor_get_position(CLUTTER_ACTOR(tmp->text), &x, &y);
       cairo_line_to(cr, x, y);
+      tmp = tmp->list_next;
     }
     cairo_stroke(cr);
   }
@@ -705,7 +717,7 @@ void draw_head_var (cairo_t *cr, t_var *var) {
 t_coords *draw_var_lines (cairo_t *cr, t_var *var) {
   t_coords *result = NULL;
   
-  if (var->typetag == T_LIST_START && var->list_next != NULL) {
+  if (var->typetag == T_LIST && var->list_first != NULL) {
     draw_list_var(cr, var);
   }
   else {
@@ -719,7 +731,7 @@ t_coords *draw_var_lines (cairo_t *cr, t_var *var) {
         draw_head_var(cr, from);
       }
       else {
-        if (from->typetag == T_LIST_START) {
+        if (from->typetag == T_LIST) {
           draw_list_var(cr, from);
         }
       }
@@ -801,12 +813,13 @@ void draw_lines (int send_to_haskell) {
         draw_head_var(cr, var);
       }
       else {
-        if (var->typetag == T_LIST_START) {
+        if (var->typetag == T_LIST) {
           // no need to print out lone lists..
-          //if (send_to_haskell) {
-          //  printf("%s\n", show_function(var));
-          //  fflush(stdout);
-          //}
+          // do it anyway for now..
+          if (send_to_haskell) {
+            printf("%s\n", show_function(var));
+            fflush(stdout);
+          }
           draw_list_var(cr, var);
         }
       }
@@ -947,7 +960,7 @@ void start_curry () {
       }
     }
     else {
-      if (var->typetag == T_LIST_START) {
+      if (var->typetag == T_LIST) {
         lookup_to[0] = lookup_from[0] = NULL;
         var->list_type = dup_var(var->list_type, lookup_from, lookup_to);
       }
@@ -1012,20 +1025,43 @@ int valigned (t_var *a, t_var *b) {
 
 /**/
 
+
+static int cmp_var_x_dec(const void *p1, const void *p2) {
+  t_var *var1 = *(t_var * const *) p1;
+  t_var *var2 = *(t_var * const *) p2;
+  int result = var2->x - var1->x;
+  return result;
+}
+
+/**/
+
 void find_lists (void) {
   typedef struct {
     t_var *var, *to;
     float distance;
   } t_match;
 
+  t_var *list_starts[MAXNAMES];
+  int list_start_n = 0;
+
+  for (int i = 0; i < curried_n; ++i) {
+    t_var *a = &curried[i];
+    if (a->typetag == T_LIST && (!a->list_function)) {
+      list_starts[list_start_n++] = a;
+    }
+  }
+  
+  // sort list starts along x axis, rightmost first
+  qsort(list_starts, list_start_n, sizeof(t_var *), cmp_var_x_dec);
+
   t_match matches[MAXNAMES];
 
   int match_n = 0;
   
   // find start and end of lists
-  for (int i = 0; i < curried_n; ++i) {
-    t_var *a = &curried[i];
-    if (a->typetag == T_LIST_START) {
+  for (int i = 0; i < list_start_n; ++i) {
+    t_var *a = list_starts[i];
+    if (a->typetag == T_LIST) {
       t_match *match = NULL;
       for (int j = 0; j < curried_n; ++j) {
         t_var *b = &curried[j];
@@ -1049,7 +1085,7 @@ void find_lists (void) {
       }
       else {
         match->to->output_from = match->var;
-        match->var->list_next = match->to;
+        match->var->list_first = match->to;
       }
     }
   }
@@ -1061,21 +1097,21 @@ void find_lists (void) {
     t_var *list_prev = NULL;
     t_match items[MAXNAMES];
     int item_n = 0;
-
     // start with smallest list first
     for (int i = 1; i < match_n; ++i) {
       if (matches[i].distance < matches[lowest].distance) {
         lowest = i;
       }
     }
-    
-    // T_LIST_START
+    // T_LIST
     left = matches[lowest].var;
-    assert(left->typetag == T_LIST_START);
+    assert(left->typetag == T_LIST);
     left->assigned = 1;
 
+    //printf("match list #%d starting %f\n", lowest, left->x);
+
     // T_LIST_END
-    right = left->list_next;
+    right = left->list_first;
     assert(right->typetag == T_LIST_END);
     right->assigned = 1;
 
@@ -1096,10 +1132,10 @@ void find_lists (void) {
       if (item->typetag != T_REAL 
           && item->typetag != T_INT 
           && item->typetag != T_STRING
-          && item->typetag != T_NOTHING) {
+          && item->typetag != T_NOTHING
+          && item->typetag != T_LIST) {
         continue;
       }
-
 
       /*
         list_type always a wildcard at this stage, right?
@@ -1132,13 +1168,28 @@ void find_lists (void) {
         }
       }
       var = items[closest].var;
-        
       if (var->typetag != T_NOTHING && left->list_type->typetag == T_WILDCARD) {
-        left->list_type = var;
+        if (var->typetag == T_LIST) {
+          left->list_type = var->list_type;
+        }
+        else {
+          left->list_type = var;
+        }
       }
 
       // no mixed types (leftmost item gives the type)
-      if (var->typetag == T_NOTHING || type_eq(left->list_type, var, -1)) {
+      if ((var->typetag == T_LIST 
+           && type_eq(left->list_type, 
+                      var->list_type, -1
+                      )
+           )
+          || (var->typetag != T_LIST 
+              && type_eq(left->list_type, var, -1
+                         )
+              )
+          || var->typetag == T_NOTHING 
+          ) {
+        //printf("really add item called %s\n", clutter_text_get_text(var->text));
         var->output_from = left;
         var->list_next = right;
         var->assigned = 1;
@@ -1146,7 +1197,7 @@ void find_lists (void) {
           list_prev->list_next = var;
         }
         else {
-          left->list_next = var;
+          left->list_first = var;
         }
         list_prev = var;
       }
@@ -1347,8 +1398,8 @@ void move_children(t_var *var, gfloat dx, gfloat dy) {
     move_children(var->f.input, dx, dy);
     move_children(var->f.output, dx, dy);
   }
-  else if (var->typetag == T_LIST_START) {
-    t_var *tmp = var->list_next;
+  else if (var->typetag == T_LIST) {
+    t_var *tmp = var->list_first;
     while (tmp != NULL) {
       move_children(tmp, dx, dy);
       tmp = tmp->list_next;
@@ -1810,7 +1861,7 @@ static gboolean on_stage_key_press (ClutterActor *stage,
   ClutterModifierType state = clutter_event_get_state(event);
   gboolean control_pressed = (state & CLUTTER_CONTROL_MASK ? TRUE : FALSE);
   gunichar key_unichar = clutter_event_get_key_unicode ((ClutterEvent *) event);
-  char *spesh = "[]+-*/~<>";
+  char *spesh = "[]+-*/~<>|";
 
   if (control_pressed) {
     //printf("pressed: %d\n", key_unichar);
@@ -1988,7 +2039,7 @@ static gboolean playback_thread (gpointer data) {
 
   double t = log_now();
   while ((entry = log_next(t)) != NULL) {
-    printf("entry %d, %s\n", entry->id, entry->command);
+    //printf("entry %d, %s\n", entry->id, entry->command);
     switch (entry->command[0]) {
     case 'h': // hello
       playback_hello(entry);
@@ -2029,7 +2080,7 @@ int main (int argc, char *argv[]) {
     HEIGHT = atoi(argv[2]);
     if (WIDTH <= 1) WIDTH = 1024;
     if (HEIGHT <= 1) HEIGHT = 768;
-    printf("%sx%s %dx%d\n", argv[1], argv[2], WIDTH, HEIGHT);
+    //printf("%sx%s %dx%d\n", argv[1], argv[2], WIDTH, HEIGHT);
   }
 
   global = get_namespace();
@@ -2037,9 +2088,7 @@ int main (int argc, char *argv[]) {
 
   g_thread_init (NULL);
   clutter_threads_init ();
-  printf("init\n");
   clutter_init (&argc, &argv);
-  printf("initted\n");
   init_stage();
   init_texture();
   init_cursor();
