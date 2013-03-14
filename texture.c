@@ -353,7 +353,6 @@ void show_function_recurse (t_var *var, char *result) {
       }
       strncat(result, "])", MAX_CHARS);
     }
-    strncat(result, "])", MAX_CHARS);
     break;
     
   case T_STRING:
