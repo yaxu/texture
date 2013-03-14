@@ -1,5 +1,5 @@
 CFLAGS= -Wall -std=gnu99 -g `pkg-config --cflags clutter-1.0` `pkg-config --cflags gtk+-2.0` 
-LDFLAGS= `pkg-config --libs clutter-1.0` -lm `pkg-config --libs gtk+-2.0 gthread-2.0`
+LDFLAGS= `pkg-config --libs clutter-1.0` -lm -llo `pkg-config --libs gtk+-2.0 gthread-2.0`
 
 CC=gcc
 
