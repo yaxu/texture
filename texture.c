@@ -28,9 +28,11 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <lo/lo.h>
 #include "types.h"
 #include "assert.h"
 #include "log.h"
+#include <pthread.h>
 
 //#define WIDTH 640
 //#define HEIGHT 480
@@ -144,6 +146,13 @@ int playback_map_n = 0;
 #define LINE_GAP 2
 #define MAX_CHARS 2048
 
+pthread_mutex_t xyz_lock;
+float kate_x = 0;
+float kate_y = 0;
+float kate_z = 0;
+float kate_a = 0;
+int xyz_moved = 0;
+ClutterText *kate = NULL;
 
 void break_word ();
 
@@ -1989,6 +1998,22 @@ void playback_bye(t_log_entry *entry) {
 
 /**/
 
+static gboolean xyz_thread (gpointer data) {
+  gfloat width, height;
+  pthread_mutex_lock(&xyz_lock);
+  if (xyz_moved) {
+    clutter_actor_get_size(CLUTTER_ACTOR(kate), &width, &height);
+    clutter_actor_set_position(CLUTTER_ACTOR(kate), 
+                               (kate_x*WIDTH) - (width/2), 
+                               ((1-kate_a)*HEIGHT) - (height/2)
+                               );
+    xyz_moved = 0;
+    curry();
+  }
+  pthread_mutex_unlock(&xyz_lock);
+  return(TRUE);
+}
+
 static gboolean playback_thread (gpointer data) {
   t_log_entry *entry;
 
@@ -2017,8 +2042,53 @@ static gboolean playback_thread (gpointer data) {
   return(TRUE);
 }
 
+/**/
+
+int xyz_handler(const char *path, const char *types, lo_arg **argv,
+                int argc, void *data, void *user_data) {
+  pthread_mutex_lock(&xyz_lock);
+  //printf("locked\n");
+  kate_x = argv[0]->f;
+  kate_y = argv[1]->f;
+  kate_z = argv[2]->f;
+  kate_a = argv[3]->f;
+
+  xyz_moved = 1;
+  pthread_mutex_unlock(&xyz_lock);
+
+  return 0;
+}
 
 /**/
+
+void error(int num, const char *msg, const char *path) {
+    printf("liblo server error %d in path %s: %s\n", num, path, msg);
+}
+
+/**/
+
+void init_kate() {
+  kate = text_new();
+  add_word(kate);
+  clutter_actor_set_position(CLUTTER_ACTOR(kate), HEIGHT/2, WIDTH/2);
+  clutter_text_set_text(kate, "hello");
+}
+
+/**/
+int generic_handler(const char *path, const char *types, lo_arg **argv,
+		    int argc, void *data, void *user_data) {
+    int i;
+    
+    printf("path: <%s>\n", path);
+    for (i=0; i<argc; i++) {
+      printf("arg %d '%c' ", i, types[i]);
+      lo_arg_pp(types[i], argv[i]);
+      printf("\n");
+    }
+    printf("\n");
+
+    return 1;
+}
 
 int main (int argc, char *argv[]) {
 /*  int readlog = argc > 1;
@@ -2041,16 +2111,30 @@ int main (int argc, char *argv[]) {
   global = get_namespace();
   local.n = 0;
 
-  g_thread_init (NULL);
+  pthread_mutex_init(&xyz_lock, NULL);
+  lo_server_thread st = lo_server_thread_new("1234", error);
+  //lo_server_thread_add_method(st, NULL, NULL, generic_handler, NULL);
+  
+  lo_server_thread_add_method(st, "/isadora/1", "ffff",
+                              xyz_handler,
+                              NULL
+                             );
+  lo_server_thread_start(st);
+
+  //g_thread_init (NULL);
   clutter_threads_init ();
-  printf("init\n");
+  //printf("init\n");
   clutter_init (&argc, &argv);
-  printf("initted\n");
+  //printf("initted\n");
   init_stage();
   init_texture();
   init_cursor();
+  init_kate();
   clutter_actor_show(stage);
   
+  clutter_threads_add_timeout(50,
+                              xyz_thread,
+                              NULL);
   /*if (readlog) {
     clutter_threads_add_timeout (50,
                                  playback_thread,
