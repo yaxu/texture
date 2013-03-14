@@ -11,7 +11,7 @@
 #define T_OSC 'O'
 #define T_NOTHING '~'
 
-#define NUM_OF_TYPES 13
+#define NUM_OF_TYPES 11
 
 #define MAXLEN 255
 #define MAXNAMES 2048
