@@ -372,6 +372,15 @@ extern t_namespace *get_namespace(void) {
     entry->var = f(l(a), l(a));
 
     entry = &namespace.names[namespace.n++];
+    strncpy(entry->name, "striate", MAXLEN);
+    entry->var = f(i(), f(l(m()), l(m())));
+
+    entry = &namespace.names[namespace.n++];
+    strncpy(entry->name, "smudge", MAXLEN);
+    a = w(NULL);
+    entry->var = f(l(r()), f(l(a), l(a)));
+
+    entry = &namespace.names[namespace.n++];
     strncpy(entry->name, "samples", MAXLEN);
     entry->var = f(l(s()), f(l(i()), l(s())));
 

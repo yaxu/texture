@@ -42,7 +42,7 @@ int WIDTH = 1024;
 int HEIGHT = 768;
 
 #define FONT_SIZE_CAIRO 17
-#define FONT_SIZE_CLUTTER "14"
+#define FONT_SIZE_CLUTTER "12"
 //#define FONT_SIZE_CAIRO 14
 //#define FONT_SIZE_CLUTTER "11"
 
@@ -1817,6 +1817,7 @@ void break_word () {
 
   // OK, break the word
   strncpy(left_str, str, pos);
+  left_str[pos] = '\0';
   strcpy(right_str, str + pos);
 
   ClutterText *text = text_new();
@@ -2033,7 +2034,7 @@ void playback_edit(t_log_entry *entry) {
 /**/
 
 void playback_release(t_log_entry *entry) {
-  ClutterText *text = playback_lookup(entry->id);
+  //ClutterText *text = playback_lookup(entry->id);
   // todo?
 }
 
@@ -2057,7 +2058,7 @@ static gboolean xyz_thread (gpointer data) {
     clutter_actor_get_size(CLUTTER_ACTOR(kate), &width, &height);
     clutter_actor_set_position(CLUTTER_ACTOR(kate), 
                                (kate_x*WIDTH) - (width/2), 
-                               ((1-kate_a)*HEIGHT) - (height/2)
+                               ((1-kate_z)*HEIGHT) - (height/2)
                                );
     xyz_moved = 0;
     curry();
@@ -2066,6 +2067,7 @@ static gboolean xyz_thread (gpointer data) {
   return(TRUE);
 }
 
+#ifdef PLAYBACK
 static gboolean playback_thread (gpointer data) {
   t_log_entry *entry;
 
@@ -2093,6 +2095,7 @@ static gboolean playback_thread (gpointer data) {
   
   return(TRUE);
 }
+#endif
 
 /**/
 
@@ -2103,11 +2106,31 @@ int xyz_handler(const char *path, const char *types, lo_arg **argv,
   kate_x = argv[0]->f;
   kate_y = argv[1]->f;
   kate_z = argv[2]->f;
-  kate_a = argv[3]->f;
+  kate_a = 0; //argv[3]->f;
 
   xyz_moved = 1;
   pthread_mutex_unlock(&xyz_lock);
 
+  return 0;
+}
+
+/**/
+
+int kill_handler(const char *path, const char *types, lo_arg **argv,
+                int argc, void *data, void *user_data) {
+  printf("Bye\n");
+  for (int i = (words_n - 1); i >= 0; --i) {
+    clutter_container_remove_actor(CLUTTER_CONTAINER(stage), 
+                                   CLUTTER_ACTOR(words[i])
+                                   );
+    delete_word(words[i]);
+  }
+  curry();
+  reset_cursor();
+  draw_lines(0);
+  clutter_actor_queue_redraw(stage);
+  printf("sampler silence\n");
+  fflush(stdout);
   return 0;
 }
 
@@ -2167,7 +2190,11 @@ int main (int argc, char *argv[]) {
   lo_server_thread st = lo_server_thread_new("1234", error);
   //lo_server_thread_add_method(st, NULL, NULL, generic_handler, NULL);
   
-  lo_server_thread_add_method(st, "/isadora/1", "ffff",
+  lo_server_thread_add_method(st, "/kill", "",
+                              kill_handler,
+                              NULL
+                             );
+  lo_server_thread_add_method(st, "/isadora/1", "fff",
                               xyz_handler,
                               NULL
                              );
@@ -2176,7 +2203,7 @@ int main (int argc, char *argv[]) {
   //g_thread_init (NULL);
   clutter_threads_init ();
   printf("init\n");
-  clutter_init (&argc, &argv);
+  clutter_init(&argc, &argv);
   printf("initted\n");
   init_stage();
   init_texture();
@@ -2187,12 +2214,14 @@ int main (int argc, char *argv[]) {
   clutter_threads_add_timeout(50,
                               xyz_thread,
                               NULL);
-  /*if (readlog) {
+  #ifdef PLAYBACK
+  if (readlog) {
     clutter_threads_add_timeout (50,
                                  playback_thread,
                                  NULL);
   }
-  */
+  #endif
+
   clutter_threads_enter ();
   clutter_main();
   clutter_threads_leave ();

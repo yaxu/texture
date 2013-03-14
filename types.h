@@ -58,7 +58,7 @@ struct var {
   float applied_width, applied_height;
   t_var *list_next;
   t_var *list_first; // first element in T_START_LIST types
-  t_var *list_function; // list specified as function, not as [ ]
+  int list_function; // list specified as function, not as [ ]
   
   t_wildcard wildcard;
   t_wildcard wildcard_test;
