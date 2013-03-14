@@ -1570,13 +1570,18 @@ static gboolean on_text_changed (ClutterText *text,
                                  ) {
   int len = strlen(clutter_text_get_text(text));
   if (len == 0) {
-    edit(NULL);
-    reset_cursor();
-    clutter_container_remove_actor(CLUTTER_CONTAINER(stage), 
-                                   CLUTTER_ACTOR(text)
-                                   );
-    delete_word(text);
-    log_delete(text);
+    if (text == kate) {
+      clutter_text_set_text(text, "kate");
+    }
+    else {
+      edit(NULL);
+      reset_cursor();
+      clutter_container_remove_actor(CLUTTER_CONTAINER(stage), 
+                                     CLUTTER_ACTOR(text)
+                                     );
+      delete_word(text);
+      log_delete(text);
+    }
     // todo free text?
   }
   else {
@@ -2118,7 +2123,7 @@ void init_kate() {
   kate = text_new();
   add_word(kate);
   clutter_actor_set_position(CLUTTER_ACTOR(kate), HEIGHT/2, WIDTH/2);
-  clutter_text_set_text(kate, "hello");
+  clutter_text_set_text(kate, "kate");
 }
 
 /**/
