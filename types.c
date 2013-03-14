@@ -345,6 +345,7 @@ extern t_namespace *get_namespace(void) {
     entry = &namespace.names[namespace.n++];
     strncpy(entry->name, "silence", MAXLEN);
     entry->var = l(m());
+    entry->var->list_function = 1;
 
     entry = &namespace.names[namespace.n++];
     strncpy(entry->name, "palindrome", MAXLEN);
