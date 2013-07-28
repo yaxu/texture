@@ -1962,25 +1962,6 @@ void init_cursor () {
 }
 
 /**/
-/*
-void init_texture () {
-  ctex = clutter_cairo_texture_new(WIDTH, HEIGHT);
-  cairo_t *cr = clutter_cairo_texture_create(CLUTTER_CAIRO_TEXTURE (ctex));
-
-  // TODO what's all this?
-  cairo_set_tolerance (cr, 0.1);
-  cairo_set_operator (cr, CAIRO_OPERATOR_CLEAR);
-  cairo_paint(cr);
-  cairo_set_operator (cr, CAIRO_OPERATOR_OVER);
-  cairo_set_source_rgba(cr, 1, 1, 1, 1);
-  cairo_destroy(cr);
-  clutter_container_add_actor(CLUTTER_CONTAINER(stage),
-                              ctex
-                              );
-  clutter_actor_set_position(ctex, 0, 0);
-}
-*/
-/**/
 
 void init_stage () {
 #ifdef MONOCHROME
@@ -2268,19 +2249,18 @@ int main (int argc, char *argv[]) {
 #endif
   lo_server_thread_start(st);
 
-  //g_thread_init (NULL);
-  //clutter_threads_init ();
   if (clutter_init (&argc, &argv) != CLUTTER_INIT_SUCCESS)
     return EXIT_FAILURE;
 
   init_stage();
   
-  //init_texture();
   init_cursor();
 #ifdef KATE
   init_kate();
 #endif
-  
+
+  g_signal_connect (stage, "destroy", G_CALLBACK (clutter_main_quit), NULL);
+
 #ifdef KATE
   clutter_threads_add_timeout(50,
                               xyz_thread,
@@ -2294,11 +2274,7 @@ int main (int argc, char *argv[]) {
                                  NULL);
   }
   #endif
-  //clutter_threads_enter ();
   clutter_main();
-  //clutter_threads_leave ();
-
   log_close();
   return EXIT_SUCCESS;
 }
-
