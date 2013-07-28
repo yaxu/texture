@@ -50,10 +50,14 @@ int HEIGHT = 768;
 #define MAXWORDS 1024
 #define CTEXT clutter_text_get_text
 
+int send_to_haskell = 0;
+
 //#define MONOCHROME 1
 
 ClutterActor *stage = NULL;
-ClutterActor *ctex = NULL;
+//ClutterActor *ctex = NULL;
+ClutterContent *canvas;
+
 ClutterActor *cursor = NULL;
 
 ClutterText *words[MAXWORDS];
@@ -146,6 +150,7 @@ int playback_map_n = 0;
 #define LINE_GAP 2
 #define MAX_CHARS 2048
 
+#ifdef KATE
 pthread_mutex_t xyz_lock;
 float kate_x = 0;
 float kate_y = 0;
@@ -153,6 +158,7 @@ float kate_z = 0;
 float kate_a = 0;
 int xyz_moved = 0;
 ClutterText *kate = NULL;
+#endif
 
 void break_word ();
 
@@ -163,7 +169,7 @@ void toggle_background() {
   dark = !dark;
 
   background = dark ? &black : &white;
-  clutter_stage_set_color (CLUTTER_STAGE(stage), background);
+  clutter_actor_set_background_color (CLUTTER_ACTOR(stage), background);
 }
 
 /**/
@@ -780,15 +786,18 @@ t_var *text_to_curried(ClutterActor *text) {
 }
 
 /**/
-
-void draw_lines (int send_to_haskell) {
-  cairo_t *cr;
-  
+static gboolean
+draw_lines(ClutterCanvas *canvas,
+            cairo_t       *cr,
+            int            width,
+            int            height)
+{
+  //cairo_t *cr;
   cairo_surface_t *surface;
 
   if (save) {
     ClutterColor background;
-    clutter_stage_get_color (CLUTTER_STAGE(stage), &background);
+    clutter_actor_get_background_color (CLUTTER_ACTOR(stage), &background);
     fprintf(stderr, "saving\n");
     surface = cairo_svg_surface_create(svg_filename(), WIDTH, HEIGHT);
     cr = cairo_create(surface);
@@ -801,9 +810,10 @@ void draw_lines (int send_to_haskell) {
     cairo_fill(cr);
   }
   else {
-    cr  = clutter_cairo_texture_create(CLUTTER_CAIRO_TEXTURE (ctex));
+    /*cr  = clutter_cairo_texture_create(CLUTTER_CAIRO_TEXTURE (ctex));
     cairo_set_operator (cr, CAIRO_OPERATOR_CLEAR);
-    cairo_paint(cr);
+    cairo_paint(cr);*/
+    //clutter_content_invalidate(CLUTTER_CONTENT(canvas));
   }
 
   cairo_set_tolerance (cr, 0.1);
@@ -873,13 +883,14 @@ void draw_lines (int send_to_haskell) {
     }
     
     //cairo_show_page(cr);
-    cairo_destroy(cr);
+    //cairo_destroy(cr);
     cairo_surface_destroy(surface); 
     save = 0;
   }
   else {
-    cairo_destroy(cr);
+    //cairo_destroy(cr);
   }
+  return(TRUE);
 }
 
 /**/
@@ -1316,7 +1327,9 @@ void curry (void) {
       }
     }
   }
-  draw_lines(1);
+  //draw_lines(1);
+  send_to_haskell = 1;
+  clutter_content_invalidate(canvas);
   colour_text();
   return;
 }
@@ -1502,7 +1515,8 @@ static gboolean on_stage_motion (ClutterActor *stage,
       }
 
       //log_move(editing);
-      draw_lines(0);
+      clutter_content_invalidate(canvas);
+      //draw_lines(0);
     }
     else {
       if (editing) {
@@ -1570,18 +1584,22 @@ static gboolean on_text_changed (ClutterText *text,
                                  ) {
   int len = strlen(clutter_text_get_text(text));
   if (len == 0) {
+#ifdef KATE
     if (text == kate) {
       clutter_text_set_text(text, "kate");
     }
     else {
+#endif
       edit(NULL);
       reset_cursor();
-      clutter_container_remove_actor(CLUTTER_CONTAINER(stage), 
-                                     CLUTTER_ACTOR(text)
-                                     );
+      clutter_actor_remove_child(CLUTTER_ACTOR(stage), 
+				 CLUTTER_ACTOR(text)
+				 );
       delete_word(text);
       log_delete(text);
+#ifdef KATE
     }
+#endif
     // todo free text?
   }
   else {
@@ -1617,9 +1635,9 @@ void delete_selected() {
   for (int i = 0; i < curried_n; ++i) {
     t_var *var = &curried[i];
     if (var_selected(var)) {
-      clutter_container_remove_actor(CLUTTER_CONTAINER(stage), 
-                                     CLUTTER_ACTOR(var->text)
-                                     );
+      clutter_actor_remove_child(CLUTTER_ACTOR(stage), 
+				 CLUTTER_ACTOR(var->text)
+				 );
       delete_word(var->text);
     }
   }
@@ -1754,7 +1772,7 @@ ClutterText *text_new () {
   clutter_actor_set_reactive(CLUTTER_ACTOR(text), TRUE);
   clutter_text_set_editable(text, TRUE);
   clutter_text_set_activatable(text, TRUE);
-  clutter_container_add_actor(CLUTTER_CONTAINER(stage), CLUTTER_ACTOR(text));
+  clutter_actor_add_child(CLUTTER_ACTOR(stage), CLUTTER_ACTOR(text));
   clutter_text_set_cursor_color(text, &grey);
 
   g_signal_connect(CLUTTER_ACTOR(text), 
@@ -1888,8 +1906,26 @@ static gboolean on_stage_key_press (ClutterActor *stage,
         break;
       case 19:
         save = 1;
-        draw_lines(0);
+	clutter_content_invalidate(canvas);
+        //draw_lines(0);
         break;
+#ifdef KATE
+    case 49:
+      clutter_text_set_text(kate, "bd");
+      break;
+    case 50:
+      clutter_text_set_text(kate, "rev");
+      break;
+    case 27:
+      clutter_text_set_text(kate, "brak");
+      break;
+    case 28:
+      clutter_text_set_text(kate, "sn/2");
+      break;
+    case 29:
+      clutter_text_set_text(kate, "gabba");
+      break;
+#endif
     }
   }
   else {
@@ -1910,21 +1946,23 @@ static gboolean on_stage_key_press (ClutterActor *stage,
 /**/
 
 void init_cursor () {
-  ClutterColor seethrough = {0, 0, 0, 0};
-  cursor = clutter_rectangle_new_with_color(&seethrough);
+  //ClutterColor seethrough = {0, 0, 0, 0};
+  cursor = clutter_actor_new();
   clutter_actor_set_position(cursor, WIDTH/2, HEIGHT/2);
   reset_cursor();
 #ifdef MONOCHROME
-  clutter_rectangle_set_border_color(CLUTTER_RECTANGLE(cursor), &black);
+  clutter_actor_set_background_color(cursor, &darkgrey);
+  //clutter_rectangle_set_border_color(CLUTTER_RECTANGLE(cursor), &black);
 #else
-  clutter_rectangle_set_border_color(CLUTTER_RECTANGLE(cursor), &white);
+  clutter_actor_set_background_color(cursor, &darkgrey);
+  //clutter_rectangle_set_border_color(CLUTTER_RECTANGLE(cursor), &white);
 #endif
-  clutter_rectangle_set_border_width(CLUTTER_RECTANGLE(cursor), 2);
-  clutter_container_add_actor(CLUTTER_CONTAINER(stage), cursor);
+  //clutter_rectangle_set_border_width(CLUTTER_RECTANGLE(cursor), 2);
+  clutter_actor_add_child(CLUTTER_ACTOR(stage), cursor);
 }
 
 /**/
-
+/*
 void init_texture () {
   ctex = clutter_cairo_texture_new(WIDTH, HEIGHT);
   cairo_t *cr = clutter_cairo_texture_create(CLUTTER_CAIRO_TEXTURE (ctex));
@@ -1941,7 +1979,7 @@ void init_texture () {
                               );
   clutter_actor_set_position(ctex, 0, 0);
 }
-
+*/
 /**/
 
 void init_stage () {
@@ -1950,9 +1988,29 @@ void init_stage () {
 #else
   ClutterColor *background = &black;
 #endif
-  stage = clutter_stage_get_default();
-  clutter_actor_set_size (stage, WIDTH, HEIGHT);
-  clutter_stage_set_color (CLUTTER_STAGE(stage), background);
+  ClutterActor *actor;
+  //stage = clutter_stage_get_default();
+  stage = clutter_stage_new();
+  clutter_actor_set_background_color(stage, background);
+  clutter_actor_set_size(stage, WIDTH, HEIGHT);
+  clutter_actor_show(stage);
+
+  canvas = clutter_canvas_new ();
+  clutter_canvas_set_size (CLUTTER_CANVAS(canvas), WIDTH, HEIGHT);
+
+  actor = clutter_actor_new ();
+  clutter_actor_set_content (actor, canvas);
+  clutter_actor_set_content_scaling_filters (actor,
+                                             CLUTTER_SCALING_FILTER_TRILINEAR,
+                                             CLUTTER_SCALING_FILTER_LINEAR);
+  clutter_actor_add_child (stage, actor);
+  g_object_unref (canvas);
+  clutter_actor_add_constraint (actor, clutter_bind_constraint_new (stage, CLUTTER_BIND_SIZE, 0));
+  //  g_signal_connect (actor, "allocation-changed", G_CALLBACK (on_actor_resize), NULL);
+  g_signal_connect (canvas, "draw", G_CALLBACK (draw_lines), NULL);
+  clutter_content_invalidate(canvas);
+
+  //clutter_stage_set_color (CLUTTER_STAGE(stage), background);
   clutter_stage_set_title(CLUTTER_STAGE(stage), "Edit");
   g_signal_connect(stage, "button-press-event", 
                    G_CALLBACK(on_stage_button_press), NULL);
@@ -2043,14 +2101,14 @@ void playback_release(t_log_entry *entry) {
 void playback_bye(t_log_entry *entry) {
   ClutterText *text = playback_lookup(entry->id);
   playback_lookup_delete(entry->id);
-  clutter_container_remove_actor(CLUTTER_CONTAINER(stage), 
-                                 CLUTTER_ACTOR(text)
-                                 );
+  clutter_actor_remove_child(CLUTTER_ACTOR(stage), 
+			     CLUTTER_ACTOR(text)
+			     );
   delete_word(text);
 }
 
 /**/
-
+#ifdef KATE
 static gboolean xyz_thread (gpointer data) {
   gfloat width, height;
   pthread_mutex_lock(&xyz_lock);
@@ -2066,6 +2124,7 @@ static gboolean xyz_thread (gpointer data) {
   pthread_mutex_unlock(&xyz_lock);
   return(TRUE);
 }
+#endif
 
 #ifdef PLAYBACK
 static gboolean playback_thread (gpointer data) {
@@ -2099,6 +2158,7 @@ static gboolean playback_thread (gpointer data) {
 
 /**/
 
+#ifdef KATE
 int xyz_handler(const char *path, const char *types, lo_arg **argv,
                 int argc, void *data, void *user_data) {
   pthread_mutex_lock(&xyz_lock);
@@ -2113,6 +2173,7 @@ int xyz_handler(const char *path, const char *types, lo_arg **argv,
 
   return 0;
 }
+#endif
 
 /**/
 
@@ -2120,14 +2181,15 @@ int kill_handler(const char *path, const char *types, lo_arg **argv,
                 int argc, void *data, void *user_data) {
   printf("Bye\n");
   for (int i = (words_n - 1); i >= 0; --i) {
-    clutter_container_remove_actor(CLUTTER_CONTAINER(stage), 
-                                   CLUTTER_ACTOR(words[i])
-                                   );
+    clutter_actor_remove_child(CLUTTER_ACTOR(stage), 
+			       CLUTTER_ACTOR(words[i])
+			       );
     delete_word(words[i]);
   }
   curry();
   reset_cursor();
-  draw_lines(0);
+  //draw_lines(0);
+  clutter_content_invalidate(canvas);
   clutter_actor_queue_redraw(stage);
   printf("sampler silence\n");
   fflush(stdout);
@@ -2142,12 +2204,14 @@ void error(int num, const char *msg, const char *path) {
 
 /**/
 
+#ifdef KATE
 void init_kate() {
   kate = text_new();
   add_word(kate);
   clutter_actor_set_position(CLUTTER_ACTOR(kate), HEIGHT/2, WIDTH/2);
   clutter_text_set_text(kate, "kate");
 }
+#endif
 
 /**/
 int generic_handler(const char *path, const char *types, lo_arg **argv,
@@ -2186,7 +2250,9 @@ int main (int argc, char *argv[]) {
   global = get_namespace();
   local.n = 0;
 
+#ifdef KATE
   pthread_mutex_init(&xyz_lock, NULL);
+#endif
   lo_server_thread st = lo_server_thread_new("1234", error);
   //lo_server_thread_add_method(st, NULL, NULL, generic_handler, NULL);
   
@@ -2194,26 +2260,33 @@ int main (int argc, char *argv[]) {
                               kill_handler,
                               NULL
                              );
+#ifdef KATE
   lo_server_thread_add_method(st, "/isadora/1", "fff",
                               xyz_handler,
                               NULL
                              );
+#endif
   lo_server_thread_start(st);
 
   //g_thread_init (NULL);
-  clutter_threads_init ();
-  printf("init\n");
-  clutter_init(&argc, &argv);
-  printf("initted\n");
+  //clutter_threads_init ();
+  if (clutter_init (&argc, &argv) != CLUTTER_INIT_SUCCESS)
+    return EXIT_FAILURE;
+
   init_stage();
-  init_texture();
-  init_cursor();
-  init_kate();
-  clutter_actor_show(stage);
   
+  //init_texture();
+  init_cursor();
+#ifdef KATE
+  init_kate();
+#endif
+  
+#ifdef KATE
   clutter_threads_add_timeout(50,
                               xyz_thread,
                               NULL);
+#endif
+
   #ifdef PLAYBACK
   if (readlog) {
     clutter_threads_add_timeout (50,
@@ -2221,10 +2294,9 @@ int main (int argc, char *argv[]) {
                                  NULL);
   }
   #endif
-
-  clutter_threads_enter ();
+  //clutter_threads_enter ();
   clutter_main();
-  clutter_threads_leave ();
+  //clutter_threads_leave ();
 
   log_close();
   return EXIT_SUCCESS;
