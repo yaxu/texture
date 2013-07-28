@@ -244,6 +244,10 @@ extern t_namespace *get_namespace(void) {
     entry->var = f(l(m()), f(l(m()), l(m())));
 
     entry = &namespace.names[namespace.n++];
+    strncpy(entry->name, "interlace", MAXLEN);
+    entry->var = f(l(m()), f(l(m()), l(m())));
+
+    entry = &namespace.names[namespace.n++];
     strncpy(entry->name, "every", MAXLEN);
     a = w(NULL);
     entry->var = f(i(), f(f(l(a), l(a)), f(l(a), l(a))));
@@ -334,6 +338,11 @@ extern t_namespace *get_namespace(void) {
 
     entry = &namespace.names[namespace.n++];
     strncpy(entry->name, ">+<", MAXLEN);
+    a = w(NULL);
+    entry->var = f(l(a), f(l(a), l(a)));
+
+    entry = &namespace.names[namespace.n++];
+    strncpy(entry->name, "append", MAXLEN);
     a = w(NULL);
     entry->var = f(l(a), f(l(a), l(a)));
 
@@ -447,8 +456,6 @@ extern t_var *applied_type(t_var *v) {
   return(v);
 }
 
-/* Kiti le Step - Bam!!! E.P. out 1st September on all good digital
-   music stores */
 int wildcard_matches(t_var *a, t_var *b) {
   assert(a->typetag == T_WILDCARD);
   int result = 0;
